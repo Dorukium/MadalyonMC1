@@ -1,3 +1,13 @@
+plugins {
+    alias(libs.plugins.shadow)
+    alias(libs.plugins.javafx.plugin)
+}
+
+val projectConfig = java.util.Properties().apply {
+    val cfg = rootProject.file("config/project.properties")
+    if (cfg.exists()) cfg.inputStream().use { load(it) }
+}
+
 // Download authlib-injector jar from GitHub releases and embed into assets
 val authlibVersion = libs.versions.authlib.injector.get()
 val authlibInjectorJar = layout.buildDirectory.file("embed/authlib-injector-$authlibVersion.jar")
@@ -8,29 +18,10 @@ val downloadAuthlibInjector by tasks.registering {
         val target = authlibInjectorJar.get().asFile
         target.parentFile.mkdirs()
         logger.lifecycle("Downloading authlib-injector from $url")
-        java.net.URL(url).openStream().use { input ->
-            target.outputStream().use { output -> input.copyTo(output) }
+        java.net.URL(url).openStream().use { input: java.io.InputStream ->
+            target.outputStream().use { output: java.io.OutputStream -> input.copyTo(output) }
         }
     }
-}
-import java.util.Properties
-import java.net.URI
-import java.nio.file.FileSystems
-import java.nio.file.Files
-import java.security.KeyFactory
-import java.security.MessageDigest
-import java.security.Signature
-import java.security.spec.PKCS8EncodedKeySpec
-import java.util.zip.ZipFile
-
-plugins {
-    alias(libs.plugins.shadow)
-    alias(libs.plugins.javafx.plugin)
-}
-
-val projectConfig = Properties().apply {
-    val cfg = rootProject.file("config/project.properties")
-    if (cfg.exists()) cfg.inputStream().use { load(it) }
 }
 
 val isOfficial = (System.getenv("CI") ?: System.getenv("GITHUB_ACTIONS"))?.equals("true", ignoreCase = true) == true
@@ -79,9 +70,9 @@ dependencies {
     // Optional dependencies removed to avoid resolution issues
 }
 
-fun digest(algorithm: String, bytes: ByteArray): ByteArray = MessageDigest.getInstance(algorithm).digest(bytes)
+fun digest(algorithm: String, bytes: ByteArray): ByteArray = java.security.MessageDigest.getInstance(algorithm).digest(bytes)
 
-fun createChecksum(file: File) {
+fun createChecksum(file: java.io.File) {
     val algorithms = linkedMapOf(
         "SHA-1" to "sha1",
         "SHA-256" to "sha256",
@@ -89,34 +80,37 @@ fun createChecksum(file: File) {
     )
 
     algorithms.forEach { (algorithm, ext) ->
-        File(file.parentFile, "${file.name}.$ext").writeText(
+        java.io.File(file.parentFile, "${file.name}.$ext").writeText(
             digest(algorithm, file.readBytes()).joinToString(separator = "", postfix = "\n") { "%02x".format(it) }
         )
     }
 }
 
-fun attachSignature(jar: File) {
+fun attachSignature(jar: java.io.File) {
     val keyLocation = System.getenv("HMCL_SIGNATURE_KEY")
     if (keyLocation == null) {
         logger.warn("Missing signature key")
         return
     }
 
-    val privatekey = KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(File(keyLocation).readBytes()))
-    val signer = Signature.getInstance("SHA512withRSA")
+    val privatekey = java.security.KeyFactory.getInstance("RSA")
+        .generatePrivate(java.security.spec.PKCS8EncodedKeySpec(java.io.File(keyLocation).readBytes()))
+    val signer = java.security.Signature.getInstance("SHA512withRSA")
     signer.initSign(privatekey)
-    ZipFile(jar).use { zip ->
+    java.util.zip.ZipFile(jar).use { zip ->
         zip.stream()
-            .sorted(Comparator.comparing { it.name })
-            .filter { it.name != "META-INF/hmcl_signature" }
-            .forEach {
-                signer.update(digest("SHA-512", it.name.toByteArray()))
-                signer.update(digest("SHA-512", zip.getInputStream(it).readBytes()))
+            .sorted(java.util.Comparator.comparing<java.util.zip.ZipEntry, String> { entry -> entry.name })
+            .filter { entry -> entry.name != "META-INF/hmcl_signature" }
+            .forEach { entry ->
+                signer.update(digest("SHA-512", entry.name.toByteArray()))
+                zip.getInputStream(entry).use { inputStream ->
+                    signer.update(digest("SHA-512", inputStream.readBytes()))
+                }
             }
     }
     val signature = signer.sign()
-    FileSystems.newFileSystem(URI.create("jar:" + jar.toURI()), emptyMap<String, Any>()).use { zipfs ->
-        Files.newOutputStream(zipfs.getPath("META-INF/hmcl_signature")).use { it.write(signature) }
+    java.nio.file.FileSystems.newFileSystem(java.net.URI.create("jar:" + jar.toURI()), emptyMap<String, Any>()).use { zipfs ->
+        java.nio.file.Files.newOutputStream(zipfs.getPath("META-INF/hmcl_signature")).use { outputStream -> outputStream.write(signature) }
     }
 }
 
@@ -236,19 +230,19 @@ val makeExecutables by tasks.registering {
     dependsOn(tasks.jar)
 
     inputs.file(jarPath)
-    outputs.files(extensions.map { File(jarPath.parentFile, jarPath.nameWithoutExtension + '.' + it) })
+    outputs.files(extensions.map { java.io.File(jarPath.parentFile, jarPath.nameWithoutExtension + '.' + it) })
 
     doLast {
         val jarContent = jarPath.readBytes()
 
-        ZipFile(jarPath).use { zipFile ->
+        java.util.zip.ZipFile(jarPath).use { zipFile ->
             for (extension in extensions) {
-                val output = File(jarPath.parentFile, jarPath.nameWithoutExtension + '.' + extension)
+                val output = java.io.File(jarPath.parentFile, jarPath.nameWithoutExtension + '.' + extension)
                 val entry = zipFile.getEntry("assets/HMCLauncher.$extension")
                     ?: throw GradleException("HMCLauncher.$extension not found")
 
                 output.outputStream().use { outputStream ->
-                    zipFile.getInputStream(entry).use { it.copyTo(outputStream) }
+                    zipFile.getInputStream(entry).use { input -> input.copyTo(outputStream) }
                     outputStream.write(jarContent)
                 }
 
