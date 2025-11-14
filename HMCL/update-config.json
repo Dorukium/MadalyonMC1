@@ -1,0 +1,8 @@
+{
+  "updateChannel": "github",
+  "repository": "MadalyonMC/Launcher",
+  "releasesUrl": "https://github.com/MadalyonMC/Launcher/releases",
+  "checkForUpdates": true,
+  "autoUpdate": false,
+  "updateCheckInterval": 86400
+}

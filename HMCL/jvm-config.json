@@ -1,0 +1,10 @@
+{
+  "defaultJvmArgs": [
+    "-Xmx4G",
+    "-Xms2G", 
+    "-XX:+UseG1GC",
+    "-XX:MaxGCPauseMillis=100"
+  ],
+  "forcedJvmArgs": true,
+  "description": "Optimized JVM arguments for MadalyonMC"
+}

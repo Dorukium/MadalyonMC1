@@ -1,0 +1,11 @@
+{
+  "servers": [
+    {
+      "name": "MadalyonMC Auth Server",
+      "url": "https://auth.madalyonmc.com/api/yggdrasil",
+      "description": "MadalyonMC cracked authentication server",
+      "preferred": true
+    }
+  ],
+  "preferred": "https://auth.madalyonmc.com/api/yggdrasil"
+}

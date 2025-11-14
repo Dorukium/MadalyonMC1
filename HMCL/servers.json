@@ -1,0 +1,15 @@
+{
+  "servers": [
+    {
+      "name": "MadalyonMC",
+      "ip": "madalyonmc.com:25565",
+      "default": true,
+      "locked": true,
+      "description": "Official MadalyonMC cracked server"
+    }
+  ],
+  "disable_add_server": true,
+  "disable_edit_server": true,
+  "auto_connect": true,
+  "auto_run_command": "/server madalyonmc.com"
+}
